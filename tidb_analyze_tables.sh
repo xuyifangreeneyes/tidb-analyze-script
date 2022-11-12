@@ -5,6 +5,10 @@ tidb_port=4000
 tidb_user="root"
 
 healthy_threshold=0.5
+tidb_build_stats_concurrency=1
+tidb_distsql_scan_concurrency=1
+analyze_max_execution_time=0
+
 
 date
 
@@ -15,7 +19,7 @@ do
     do
         echo "tidbtable:$tidbtable"
         need_analyze=0
-        analyzeglobal=0
+        analyze_global=0
         partitions=""
         while read -a row
         do
@@ -24,7 +28,7 @@ do
                 need_analyze=1
                 if [[ -n "${row[2]}" ]]; then
                     if [ "${row[2]}" = "global" ]; then
-                        analyzeglobal=1
+                        analyze_global=1
                     else
                         if [[ -n "$partitions" ]]; then
                             partitions="$partitions" ",${row[2]}"
@@ -44,10 +48,13 @@ do
             echo "table $tidbschema.$tidbtable is being analyzed, skip"
             continue
         fi
-        analyze_command="setanalyze table"
-        "select count(1) from mysql.analyze_jobs where table_schema = 'test' and table_name = 't' and state in ('pending', 'running') and update_time > current_timestamp() - interval 6 hour"
-        mysql -h$tidb_host -P"$tidb_port" -u"$tidb_user" -D"$tidbschema" -e "analyze table \`$tidbtable\`;" 
-        echo "`date` | \`$tidbschema\`.\`$tidbtable\` analyze done"
+        analyze_command="setanalyze table \`$tidbschema\`.\`$tidbtable\`"
+        if [[ -n "$partition" ]] && [[ analyze_global -eq 0 ]]; then
+            analyze_command="$analyze_command" " partition $partitions"
+        fi
+        echo "`date` | $analyze_command start"
+        mysql -h$tidb_host -P"$tidb_port" -u"$tidb_user" -D"$tidbschema" -e "set @@session.tidb_build_stats_concurrency=$tidb_build_stats_concurrency;set @@session.tidb_distsql_scan_concurrency=$tidb_distsql_scan_concurrency;set @@session.max_execution_time=$analyze_max_execution_time;$analyze_command" 
+        echo "`date` | $analyze_command done"
     done
 done
 
