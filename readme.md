@@ -1,5 +1,5 @@
 ```
-chmod +x /root/tidb_analyze_partition_tables.sh
+chmod a+x /root/tidb_analyze_partition_tables.sh
 ```
 
 Add a new crontab job.
