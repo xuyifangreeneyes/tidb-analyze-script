@@ -4,11 +4,11 @@ tidb_host="127.0.0.1"
 tidb_port=4000
 tidb_user="root"
 
-healthy_threshold=50
+healthy_threshold=10
 tidb_build_stats_concurrency=1
 tidb_distsql_scan_concurrency=1
-analyze_max_execution_time=0
-analyze_window_time=43200
+analyze_max_execution_time=0 # unit: second
+analyze_window_time=43200 # unit: second
 
 echo "`date` | start analyze tables"
 start_time=$(date +%s)
