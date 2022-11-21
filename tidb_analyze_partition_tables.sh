@@ -27,17 +27,18 @@ do
         fi
         echo "table:$table"
         partitions=""
-        while read -a row
+        for partition in $(mysql -h$tidb_host -P$tidb_port -u$tidb_user -p$tidb_password -D$schema  -Nse "select partition_name from information_schema.partitions where table_schema = \"$schema\" and table_name = \"$table\" and partition_name is not null")
         do
-            echo "${row[@]}"
-            if [[ ${#row[@]} -eq 4 ]] && [ "${row[2]}" != "global" ] && [[ $(echo "${row[3]} < $healthy_threshold" | bc) -eq 1 ]]; then
+            healthy=$(mysql -h$tidb_host -P$tidb_port -u$tidb_user -p$tidb_password -D$schema  -Nse "show stats_healthy where db_name = \"$schema\" and table_name = \"$table\" and partition_name = \"$partition\"" | awk '{print $4}')
+            echo "partition:$partition, healthy:$healthy"
+            if [[ -z "$healthy" ]] || [[ $(echo "$healthy < $healthy_threshold" | bc) -eq 1 ]]; then
                 if [[ -n "$partitions" ]]; then
-                    partitions="$partitions,${row[2]}"
+                    partitions="$partitions,$partition"
                 else
-                    partitions="${row[2]}"
+                    partitions="$partition"
                 fi
             fi
-        done< <(mysql -h$tidb_host -P$tidb_port -u$tidb_user -p$tidb_password -D$schema  -Nse "show stats_healthy where db_name = \"$schema\" and table_name = \"$table\"")
+        done
         if [[ -z "$partitions" ]]; then
             echo "skip table $schema.$table"
             continue
